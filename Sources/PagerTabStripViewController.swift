@@ -104,6 +104,10 @@ open class PagerTabStripViewController: UIViewController, UIScrollViewDelegate {
         containerView.isPagingEnabled = true
         reloadViewControllers()
 
+        // If `startFrom(viewController:)` or `startFromViewController(at:)` methods were called, then we want
+        // to start from presetted view controller.
+        currentIndex = preCurrentIndex
+
         let childController = viewControllers[currentIndex]
         addChildViewController(childController)
         childController.view.autoresizingMask = [.flexibleHeight, .flexibleWidth]
@@ -121,10 +125,7 @@ open class PagerTabStripViewController: UIViewController, UIScrollViewDelegate {
         super.viewDidAppear(animated)
         lastSize = containerView.bounds.size
         updateIfNeeded()
-        let needToUpdateCurrentChild = preCurrentIndex != currentIndex
-        if needToUpdateCurrentChild {
-            moveToViewController(at: preCurrentIndex)
-        }
+
         isViewAppearing = false
         childViewControllers.forEach { $0.endAppearanceTransition() }
     }
@@ -148,9 +149,10 @@ open class PagerTabStripViewController: UIViewController, UIScrollViewDelegate {
         return false
     }
 
+    /// The method does nothing if called before controller's view is presented. If you need to set a controller before appearance,
+    /// then use either `startFromViewController(at:)` or `startFrom(viewController:)`.
     open func moveToViewController(at index: Int, animated: Bool = true) {
         guard isViewLoaded && view.window != nil && currentIndex != index else {
-            preCurrentIndex = index
             return
         }
 
@@ -173,6 +175,26 @@ open class PagerTabStripViewController: UIViewController, UIScrollViewDelegate {
 
     open func moveTo(viewController: UIViewController, animated: Bool = true) {
         moveToViewController(at: viewControllers.index(of: viewController)!, animated: animated)
+    }
+
+    /// This method must be called before `PagerTabStripViewController.viewDidLoad`. After that all calls of the method would be ignored.
+    ///
+    /// - Parameter index: Index of controller with which the instance of `PagerTabStripViewController` will be shown.
+    open func startFromViewController(at index: Int) {
+        preCurrentIndex = index
+    }
+
+    /// Convenient version of `startFromViewController(at:)`. It tries to find `viewController` in its `viewControllers` array,
+    /// and if it succeeds, calls `startFromViewController(at:)`.
+    ///
+    /// - Parameter viewController: Controller with which the instance of `PagerTabStripViewController` will be shown.
+    open func startFrom(viewController: UIViewController) {
+        guard let index = viewControllers.index(of: viewController) else {
+            // Fail in debug, ignore in production
+            return assertionFailure("\(self) failed to retrieve \(viewController) from its viewControllers list.")
+        }
+
+        startFromViewController(at: index)
     }
 
     // MARK: - PagerTabStripDataSource
